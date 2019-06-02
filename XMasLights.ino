@@ -1,3 +1,5 @@
+// Board: ESP32 Dev Module
+
 /*** INCLUDES ***/
 #include "Settings.h"
 #include "Programs.h"
@@ -54,25 +56,39 @@ GlobalSettings g_GlobalSettings =
 CLEDProgram *g_LEDPrograms[] = {
   new Program_Solid("Solid", 1),
   new Program_Solid("Solid2", 2),
-  new Program_Solid("Solid3", 3),
+  new Program_Solid("Solid3", 3),  
+#ifdef LEDSTRIP4  
+  new Program_Solid("Solid1a", 1, 1),
+  new Program_Solid("Solid2a", 2, 1),
+  new Program_Solid("Solid3a", 3, 1),  
+  new Program_Solid("Solid6a", 6, 1),  
+#endif //LEDSTRIP4
+#ifndef LEDSTRIP4    
   new Program_Chase("Chase", 1),
   new Program_Chase("Chase2", 5),
   new Program_Chase("Chase3", 10),
+#else 
+  new Program_Chase("Chase", 1, 0),
+  new Program_Chase("Chase2", 2, 1),
+  new Program_Chase("Chase3", 1, 1),
+#endif //LEDSTRIP4    
   new Program_Breathe,
   new Program_Strobe,
-  new Program_ColorWipe,
-  new Program_Twinkle, 
-  new Program_Glitter,
+  new Program_ColorWipe(START_LED),
   new Program_Rainbow, 
   new Program_Gradient, 
+#ifndef LEDSTRIP4  
+  new Program_Twinkle, 
+  new Program_Glitter,
   new Program_Fire, 
   new Program_Meteor,//("Meteor", false),
   //new Program_Meteor("Meteor2", true), 
   new Program_Confetti, 
   new Program_Juggle,
   new Program_Bubble,
-  new Program_Magnets,
+  new Program_Magnets, 
   new Program_Christmas
+#endif //LEDSTRIP4  
 #ifdef INCLUDE_PROGRAM_SOUND
   ,new Program_Sound
 #endif //INCLUDE_PROGRAM_SOUND
@@ -81,9 +97,15 @@ CLEDProgram *g_LEDPrograms[] = {
 #endif //INCLUDE_PROGRAM_E131
 };
 
+#ifdef WIFI_ENABLED
+CLEDProgram *g_Program_Connecting = new Program_Connecting();
+#endif WIFI_ENABLED
+
 #define NUM_PROGRAMS    (sizeof(g_LEDPrograms)/sizeof(g_LEDPrograms[0]))
 const uint8_t g_NumPrograms = NUM_PROGRAMS;
 uint16_t g_NumLeds = DEFAULT_NUM_LEDS;
+
+CLEDProgram *g_CurrentProgram = g_LEDPrograms[0];
 
 static int8_t s_ProgramIndex = -1;
 int8_t g_NextProgramIndex = 0;
@@ -118,6 +140,7 @@ void setup()
 #ifdef WIFI_ENABLED
   WiFi_MQTT_Init();
 #endif // WIFI_ENABLED
+
 
   #ifdef HAS_DIGITAL_INPUTS
     pinMode(DIGITAL_IN_0, INPUT);
@@ -177,15 +200,22 @@ void loop()
     s_WasEnabled = true;
 
     // Handle program change
+
+    #ifdef WIFI_ENABLED
+      if (!WiFi_MQTT_IsConnected())
+      {
+        g_CurrentProgram = g_Program_Connecting;
+        s_ProgramIndex = -1;
+      }
+      else
+    #endif WIFI_ENABLED  
     if (g_NextProgramIndex != s_ProgramIndex)
     { 
-      if (s_ProgramIndex != -1)
-      {
-        g_LEDPrograms[s_ProgramIndex]->Stop();
-      }
-      
+      g_CurrentProgram->Stop();
+
       // change program
       s_ProgramIndex = g_NextProgramIndex;
+      g_CurrentProgram = g_LEDPrograms[s_ProgramIndex];
       
       // Start new program
       #ifdef ENABLE_DEBUG
@@ -194,7 +224,7 @@ void loop()
         Serial.println();
       #endif // ENABLE_DEBUG    
       
-      g_LEDPrograms[s_ProgramIndex]->Start();
+      g_CurrentProgram->Start();
       s_LastProgramStartTimeMs = millis();
 
       // Force Update
@@ -206,10 +236,9 @@ void loop()
     }
  
     // Insert delay if not running at max speed
-    if ((g_GlobalSettings.Speed < MAX_SPEED) && (!g_LEDPrograms[s_ProgramIndex]->NoDelay))
+    if ((g_GlobalSettings.Speed < MAX_SPEED) && (!g_CurrentProgram->NoDelay))
     {
-      unsigned long lvUpdatePeriodMs = ((MAX_CYCLE_TIME_MS * (255 - g_GlobalSettings.Speed)) / 255) / g_LEDPrograms[s_ProgramIndex]->TicksPerCycle;
-      
+      unsigned long lvUpdatePeriodMs = g_CurrentProgram->GetUpdatePeriod(g_GlobalSettings.Speed);
       // insert a delay to keep the framerate modest
       #ifdef USE_NONBLOCKING_DELAY
         // non-blocking delay      
@@ -242,13 +271,14 @@ void loop()
       {
         FastLED.setBrightness(g_GlobalSettings.Brightness);
       }
-
+      
       #ifdef ENABLE_PROFILING
         unsigned long lvDuration;
         lvDuration = micros();
       #endif    
-      
-      lvRunDone = g_LEDPrograms[s_ProgramIndex]->Update();
+            
+      lvRunDone = g_CurrentProgram->Update();        
+
       if (g_GlobalSettings.Mirror)
       {
         NUM_LEDS = DEFAULT_NUM_LEDS / 2;
@@ -261,8 +291,9 @@ void loop()
       {
         NUM_LEDS = DEFAULT_NUM_LEDS;
       }
+
       FastLED.show();
-    
+      
       #ifdef ENABLE_PROFILING
         lvDuration = micros() - lvDuration;
         s_DurationSum += lvDuration;
@@ -383,7 +414,7 @@ void loop()
       Serial.print(F("Hue: ")); 
       Serial.print(g_GlobalSettings.Hue);
       Serial.println();
-      g_LEDPrograms[s_ProgramIndex]->Start();
+      g_CurrentProgram->Start();
     }
     else if (lvRecvByte == '<')
     {
@@ -392,7 +423,7 @@ void loop()
       Serial.print(F("Hue: ")); 
       Serial.print(g_GlobalSettings.Hue);
       Serial.println();
-      g_LEDPrograms[s_ProgramIndex]->Start();
+      g_CurrentProgram->Start();
     }
     else if (lvRecvByte == '*')
     {
@@ -432,7 +463,7 @@ void loop()
           Serial.print("Speed: ");
           Serial.print(g_GlobalSettings.Speed);
           
-          unsigned long lvUpdatePeriodMs1 = ((MAX_CYCLE_TIME_MS * (255 - g_GlobalSettings.Speed)) / 255) / g_LEDPrograms[s_ProgramIndex]->TicksPerCycle;
+          unsigned long lvUpdatePeriodMs1 = ((MAX_CYCLE_TIME_MS * (255 - g_GlobalSettings.Speed)) / 255) / g_CurrentProgram->TicksPerCycle;
           Serial.print("; Period: ");
           Serial.println(lvUpdatePeriodMs1);
           

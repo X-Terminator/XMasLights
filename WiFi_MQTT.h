@@ -6,6 +6,7 @@
 
 
 void WiFi_MQTT_Init(void);
+bool WiFi_MQTT_IsConnected(void);
 void WiFi_MQTT_Tick(void);
 void MQTT_SendState(void);
 

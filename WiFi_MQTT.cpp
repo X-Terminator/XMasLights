@@ -4,7 +4,11 @@
 #ifdef WIFI_ENABLED
 
 #include <ArduinoJson.h>
-#include <WiFi.h>
+#ifdef BOARD_ESP32
+  #include <WiFi.h>
+#else
+  #include <ESP8266WiFi.h>
+#endif
 #include <PubSubClient.h> // Note: MQTT_MAX_PACKET_SIZE was changed to 512 in this file
 #include <WiFiUdp.h>
 #include <ArduinoOTA.h>
@@ -52,6 +56,7 @@ static WiFiClient       s_WiFiClient;
 static PubSubClient     s_MQTTClient(s_WiFiClient);
 
 static unsigned long s_Timer;
+static char s_DiscoveryTopic[128];
 
 /*** PUBLIC FUNCTIONS ***/
 void WiFi_MQTT_Init()
@@ -62,6 +67,10 @@ void WiFi_MQTT_Init()
     s_State = STATE_WIFI_DISCONNECTED;
 }
 
+bool WiFi_MQTT_IsConnected()
+{
+  return (bool)(s_State == STATE_WIFI_MQTT_CONNECTED);
+}
 
 void WiFi_MQTT_Tick()
 {
@@ -78,7 +87,9 @@ void WiFi_MQTT_Tick()
             MSG_DBG("Connecting to ");
             MSG_DBG_LN(WIFI_SSID);
 
+#ifdef BOARD_ESP32
             WiFi.mode(WIFI_STA);
+#endif //BOARD_ESP32            
             WiFi.begin(WIFI_SSID, WIFI_PASS);
             s_State = STATE_WIFI_CONNECTING;
             break;
@@ -433,7 +444,7 @@ static void MQTT_Discovery()
 {
   StaticJsonBuffer<JSON_BUFFER_SIZE> lvJSONBuffer;
   JsonObject& lvRoot = lvJSONBuffer.createObject();
-
+  
   lvRoot["name"] = DEVICENAME;
   //lvRoot["platform"] = "mqtt";
   lvRoot["schema"] = "json";
@@ -446,7 +457,7 @@ static void MQTT_Discovery()
   lvRoot["command_topic"] = MQTT_TOPIC_SET;
   lvRoot["availability_topic"] = MQTT_TOPIC_STATUS;
   lvRoot["effect"] = true;
-  
+
   JsonArray& lvEffects = lvRoot.createNestedArray("effect_list");
   for (int i = 0; i < g_NumPrograms; i++)
   {
@@ -456,10 +467,9 @@ static void MQTT_Discovery()
   char lvBuffer[lvRoot.measureLength() + 1];
   lvRoot.printTo(lvBuffer, sizeof(lvBuffer));
   
-  char lvDiscoveryTopic[128];
-  snprintf(lvDiscoveryTopic, sizeof(lvDiscoveryTopic), PSTR("%s/light/%s/config"), MQTT_HOMEASSISTANT_DISCOVERY_PREFIX, DEVICENAME);
+  snprintf(s_DiscoveryTopic, sizeof(s_DiscoveryTopic), "%s/light/%s/config", MQTT_HOMEASSISTANT_DISCOVERY_PREFIX, DEVICENAME);
 
-  s_MQTTClient.publish(lvDiscoveryTopic, lvBuffer, true);
+  s_MQTTClient.publish(s_DiscoveryTopic, lvBuffer, true);
 }
 
 

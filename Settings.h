@@ -2,12 +2,13 @@
 #define SETTINGS_H
 
 /*** DEVICE SELECTION ***/
-//#define LEDSTRIP1
-#define LEDSTRIP2
-//#define LEDSTRIP3
+//#define LEDSTRIP1   // Tafel LEDs
+//#define LEDSTRIP2   // Spiegel LEDs
+//#define LEDSTRIP3   // Kerstboom
+#define LEDSTRIP4   // Pomp
 
 /*** BOARD SELECTION ***/
-#define BOARD_ESP32
+
 //#define BOARD_ARDUINO_NANO
 //#define BOARD_ARDUINO_NANO_HW_CONTROLS
 
@@ -16,10 +17,12 @@
 #define LEDSTRIP1_NUM_LEDS          120
 #define LEDSTRIP2_NUM_LEDS          300
 #define LEDSTRIP3_NUM_LEDS          200
+#define LEDSTRIP4_NUM_LEDS          7
 
 #define E131_MAX_CHANNELS_PER_UNIVERSE    510
 
 #ifdef LEDSTRIP1
+  #define BOARD_ESP32
   #define DEVICENAME          "ledstrip1"
   #define DEVICENR            1
   
@@ -33,6 +36,7 @@
   #define E131_CHANNEL_START  1                // First channel in first universe
 #endif
 #ifdef LEDSTRIP2
+  #define BOARD_ESP32
   #define DEVICENAME          "ledstrip2"
   #define DEVICENR            2
   
@@ -47,6 +51,7 @@
   
 #endif
 #ifdef LEDSTRIP3
+  #define BOARD_ESP32
   #define DEVICENAME          "ledstrip3"
   #define DEVICENR            3
   
@@ -55,6 +60,24 @@
   #define COLOR_ORDER         RGB
   #define DEFAULT_NUM_LEDS    LEDSTRIP3_NUM_LEDS
   
+#endif
+#ifdef LEDSTRIP4
+  #define DEVICENAME          "ledstrip4"
+  #define DEVICENR            4
+  
+  // 7 LEDs
+  #define LED_TYPE            WS2812
+  #define COLOR_ORDER         GRB
+  #define DEFAULT_NUM_LEDS    LEDSTRIP4_NUM_LEDS
+
+  #define WIFI_ENABLED  
+  #define AUTO_CYCLE_PROGRAMS       false
+  #define AUTO_CYCLE_HUE            false
+  #define DEFAULT_HUE               170   // Blue
+  #define MAX_CYCLE_TIME_MS         5000UL   // ms
+  #define DEFAULT_SPEED             240
+  #define DEFAULT_BRIGHTNESS        48  
+  #define START_LED                 1
 #endif
 
 #define DEVICETYPE        "ledstrip"
@@ -85,7 +108,11 @@ FASTLED_USING_NAMESPACE
 #else
 // BOARD_ARDUINO_NANO
 // BOARD_ARDUINO_NANO_HW_CONTROLS
-  #define DATA_PIN            3
+  #ifdef LEDSTRIP4
+    #define DATA_PIN            5 //2
+   #else
+    #define DATA_PIN            3
+   #endif
 #endif
 
 
@@ -157,21 +184,38 @@ FASTLED_USING_NAMESPACE
 
 #define MIN_SPEED                 0
 #define MAX_SPEED                 255
-#define DEFAULT_SPEED             FRAMES_PER_SECOND
-#define MAX_CYCLE_TIME_MS         10000UL   // ms
+#ifndef DEFAULT_SPEED
+  #define DEFAULT_SPEED             FRAMES_PER_SECOND
+#endif //DEFAULT_SPEED  
+#ifndef MAX_CYCLE_TIME_MS
+  #define MAX_CYCLE_TIME_MS         10000UL   // ms
+#endif //MAX_CYCLE_TIME_MS         10000UL   // ms  
 
-#define DEFAULT_BRIGHTNESS        96  
-#define DEFAULT_HUE               128   // Aqua
+#ifndef DEFAULT_BRIGHTNESS
+  #define DEFAULT_BRIGHTNESS        96  
+#endif //DEFAULT_BRIGHTNESS
+#ifndef DEFAULT_HUE
+  #define DEFAULT_HUE               128   // Aqua
+#endif //DEFAULT_HUE
 #define DEFAULT_SATURATION        255
 
-#define AUTO_CYCLE_PROGRAMS       true
+#ifndef AUTO_CYCLE_PROGRAMS
+  #define AUTO_CYCLE_PROGRAMS       true
+#endif //AUTO_CYCLE_PROGRAMS  
 #define PROGRAM_CYCLE_TIME_SEC    60
 
-#define AUTO_CYCLE_HUE            true
+#ifndef AUTO_CYCLE_HUE
+  #define AUTO_CYCLE_HUE            true
+#endif //AUTO_CYCLE_HUE  
 #define AUTO_HUE_CYCLE_TIME_MS    200
 
 #define DEFAULT_MIRROR_MODE       false
 #define DEFAULT_REVERSE_MODE      false
+
+#ifndef START_LED
+  #define START_LED                 0
+#endif //START_LED  
+
 /*** TYPE DEFINITIONS ***/
 typedef struct 
 {

@@ -4,16 +4,44 @@
 #include "Settings.h"
 #include "CProgram.h"
 
+
+class Program_Connecting : public CLEDProgram
+{
+  public:
+    Program_Connecting() : CLEDProgram("Connecting") {  TicksPerCycle = NUM_LEDS; }
+    int GetUpdatePeriod(uint8_t inSpeed) { return (1000 / NUM_LEDS); }
+    bool Update() 
+    {
+      static uint8_t s_Offset = START_LED;
+      fadeToBlackBy( g_LEDS, NUM_LEDS, 150);
+      g_LEDS[s_Offset] = CRGB(0,0,255);
+      s_Offset++;
+      if (s_Offset >= NUM_LEDS)
+      {
+        s_Offset = START_LED;
+      }
+      return true;
+    }
+  private:
+};
+
 class Program_Solid : public CLEDProgram
 {
   public:
-    Program_Solid(const char *inName = "Solid", uint8_t inNumColors = 1) : CLEDProgram(inName) { NumColors = inNumColors; TicksPerCycle = NUM_LEDS/10; }
+    Program_Solid(const char *inName = "Solid", uint8_t inNumColors = 1, uint16_t inStartLED = 0) : CLEDProgram(inName) { NumColors = inNumColors; TicksPerCycle = NUM_LEDS/10; StartLED = inStartLED; }
+    bool Start() { fill_solid(g_LEDS, NUM_LEDS, CRGB(0,0,0)); }
     bool Update() 
     {
       static uint8_t s_Offset = 0;
-      for (uint16_t i = 0; i < NUM_LEDS; i++)
+      uint8_t lvSpacing = 85;
+      if (NumColors > 3)
       {
-        g_LEDS[i] = CHSV(g_GlobalSettings.Hue + ((i + s_Offset) % NumColors) * 85, g_GlobalSettings.Saturation, 255);
+        lvSpacing = 42;
+      }
+      
+      for (uint16_t i = StartLED; i < NUM_LEDS; i++)
+      {
+        g_LEDS[i] = CHSV(g_GlobalSettings.Hue + ((i + s_Offset) % NumColors) * lvSpacing, g_GlobalSettings.Saturation, 255);
       }
       if (g_GlobalSettings.Reverse)
       {
@@ -27,6 +55,7 @@ class Program_Solid : public CLEDProgram
     }
   private:
     uint8_t NumColors;
+    uint16_t StartLED;
 };
 
 class Program_Breathe : public CLEDProgram
@@ -75,23 +104,24 @@ class Program_Strobe : public CLEDProgram
 class Program_ColorWipe : public CLEDProgram
 {
   public:
-    Program_ColorWipe(uint8_t inNumColors = 1) : CLEDProgram("ColorWipe") { TicksPerCycle = NUM_LEDS; }
+    Program_ColorWipe(uint16_t inStartLED = 0) : CLEDProgram("ColorWipe") { TicksPerCycle = NUM_LEDS; StartLED = inStartLED;}
     bool Start();
     bool Update();
   private:
     int WiperPos;
     uint8_t HueOffset;
+    uint16_t StartLED;
 };
 
 class Program_Chase: public CLEDProgram
 {
   public:
-    Program_Chase(const char *inName = "Chase", uint8_t inGapSize = 1) : CLEDProgram(inName) { GapSize = inGapSize; TicksPerCycle = NUM_LEDS/10; }
+    Program_Chase(const char *inName = "Chase", uint8_t inGapSize = 1, uint16_t inStartLED = 0) : CLEDProgram(inName) { GapSize = inGapSize; TicksPerCycle = NUM_LEDS/10; StartLED = inStartLED; }
     bool Start() { fill_solid(g_LEDS, NUM_LEDS, CRGB(0,0,0)); }
     bool Update() 
     {
-      static uint8_t s_Offset = 0;
-      for (uint16_t i = 0; i < NUM_LEDS; i++)
+      static uint8_t s_Offset = 0;      
+      for (uint16_t i = StartLED; i < NUM_LEDS; i++)
       {
         if (((i + s_Offset) % (GapSize+1)) == 0)
         {
@@ -114,6 +144,7 @@ class Program_Chase: public CLEDProgram
     }
   private:
     uint8_t GapSize;
+    uint16_t StartLED;
 };
 
 class Program_Twinkle : public CLEDProgram {
